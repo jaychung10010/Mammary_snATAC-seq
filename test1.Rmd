@@ -2,7 +2,7 @@
 title: "snATAC"
 author: "Jay Chung"
 date: "2/2/2019"
-output: html_document
+output: rmarkdown::github_document
 ---
 
 ```{r setup, include=FALSE}
