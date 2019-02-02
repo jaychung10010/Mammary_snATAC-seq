@@ -1,6 +1,6 @@
 ---
 title: "Mammary cell snATAC-seq"
-author: "Jay Chung"
+author: "Jay Chung1"
 date: "2/2/2019"
 output: html_document
 ---
