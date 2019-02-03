@@ -99,7 +99,7 @@ write.table(peaks.p.ex.df, "Mammary_v1+2_fetal+adult_promoter.ygi",
 ## Data transformation and dimension reduction
 
 ``` r
-load("./fMaSC+adult_v1+2_rep1+2.distal.sparse_mat.RData") # load sparse bmat
+load("./fMaSC+adult_v1+2_rep1+2.distal.sparse_mat.RData") # load sparse binary matrix from upstream processing
 dim(all_distal_bmat_sm)
 ```
 
