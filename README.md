@@ -6,6 +6,176 @@ Feb 2019
 Raw files can be downloaded here:
 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125523>
 
+Install the snATAC tool: <https://github.com/r3fang/snATAC>
+
+## Sequence alignment and pre-processing
+
+Run in bash script
+
+    # Combine fastq files from the two sequencing run
+    gzcat Mammary_fetal_rep1.demultiplexed.R1.repl1.fastq.gz Mammary_v2_fetal_rep1.demultiplexed.R1.repl1.fastq.gz | gzip > Mammary_v1+2_fetal_rep1.demultiplexed.R1.repl1.fastq.gz
+    gzcat Mammary_fetal_rep1.demultiplexed.R2.repl1.fastq.gz Mammary_v2_fetal_rep1.demultiplexed.R2.repl1.fastq.gz | gzip > Mammary_v1+2_fetal_rep1.demultiplexed.R2.repl1.fastq.gz
+    gzcat Mammary_fetal_rep2.demultiplexed.R1.repl1.fastq.gz Mammary_v2_fetal_rep2.demultiplexed.R1.repl1.fastq.gz | gzip > Mammary_v1+2_fetal_rep2.demultiplexed.R1.repl1.fastq.gz
+    gzcat Mammary_fetal_rep2.demultiplexed.R2.repl1.fastq.gz Mammary_v2_fetal_rep2.demultiplexed.R2.repl1.fastq.gz | gzip > Mammary_v1+2_fetal_rep2.demultiplexed.R2.repl1.fastq.gz
+    gzcat Mammary_adult_rep1.demultiplexed.R1.repl1.fastq.gz Mammary_v2_adult_rep1.demultiplexed.R1.repl1.fastq.gz | gzip > Mammary_v1+2_adult_rep1.demultiplexed.R1.repl1.fastq.gz
+    gzcat Mammary_adult_rep1.demultiplexed.R2.repl1.fastq.gz Mammary_v2_adult_rep1.demultiplexed.R2.repl1.fastq.gz | gzip > Mammary_v1+2_adult_rep1.demultiplexed.R2.repl1.fastq.gz
+    gzcat Mammary_adult_rep2.demultiplexed.R1.repl1.fastq.gz Mammary_v2_adult_rep2.demultiplexed.R1.repl1.fastq.gz | gzip > Mammary_v1+2_adult_rep2.demultiplexed.R1.repl1.fastq.gz
+    gzcat Mammary_adult_rep2.demultiplexed.R2.repl1.fastq.gz Mammary_v2_adult_rep2.demultiplexed.R2.repl1.fastq.gz | gzip > Mammary_v1+2_adult_rep2.demultiplexed.R2.repl1.fastq.gz
+    
+    # Make sample name file
+    ls *.gz | sort | sed 's/.R[1-2].repl1.fastq.gz//' | sort -u > sample_name.txt
+    
+    # Low quality base trimming
+    #!/bin/bash
+    cd /Users/wahllab/Desktop/JayC/2018-08-03_snATAC_mammary/fastq/Second_seq_0831/combined_fastq/
+    names=($(cat sample_name.txt))
+    for FILES in "${names[@]}"
+    do 
+        sickle pe -f ./$FILES.R1.repl1.fastq.gz -r ./$FILES.R2.repl1.fastq.gz -t sanger -o ./$FILES.R1.repl1.trim.fastq.gz -p ./$FILES.R2.repl1.trim.fastq.gz -s ./$FILES.R1+2.repl1.trim.fastq.gz
+        echo $FILES" QC trim done=========="
+    done
+    
+    # Bowtie2 mapping of reads
+    #!/bin/bash
+    cd /Users/wahllab/Desktop/JayC/2018-08-03_snATAC_mammary/fastq/Second_seq_0831/combined_fastq/
+    mkdir ./bam
+    names=($(cat sample_name.txt))
+    
+    for FILES in "${names[@]}"
+    do 
+        bowtie2 -p 16 -t -X 2000 --no-mixed --no-discordant -x /Users/wahllab/Desktop/JayC/Programs/Index/Bowtie2Index/mm10/genome -1 ./$FILES.R1.repl1.trim.fastq.gz -2 ./$FILES.R2.repl1.trim.fastq.gz -S ./bam/$FILES.sam
+        echo "=========="$FILES" bowtie2 done=========="
+    done
+    
+    # Sam-bam conversion and sort
+    cd ./bam/
+    find . -name "*.sam" | parallel -j 0 "samtools view -bS {} > {.}.bam"
+    find . -name "*.bam" | parallel -j 0 "samtools sort -t 5 -n {} -o {.}.nsrt.bam"
+    
+    # Pre-processing
+    #!/bin/bash
+    cd ./bam/
+    for FILES in Mammary_v1+2_fetal_rep1 Mammary_v1+2_fetal_rep2 Mammary_v1+2_adult_rep1 Mammary_v1+2_adult_rep2
+    do
+        snATAC pre -t 16 -m 30 -f 2000 -e 75 -i $FILES.demultiplexed.nsrt.bam -o $FILES.bed.gz 2> $FILES.snATAC.pre.log
+        echo "=========="$FILES" snATAC pre done=========="
+    done
+    
+    # Call peaks
+    #!/bin/bash
+    cd ./macs2/
+    for FILES in Mammary_v1+2_fetal_rep1 Mammary_v1+2_fetal_rep2 Mammary_v1+2_adult_rep1 Mammary_v1+2_adult_rep2
+    do
+        macs2 callpeak -t $FILES.bed.gz -f BED -g mm --nolambda --nomodel --shift -100 --extsize 200 --keep-dup all -n ./$FILES\_macs2 --bdg --SPMR -q 5e-2
+        echo "=========="$FILES" MACS2 done=========="
+    done
+
+## Calculate QC statistics
+
+Run in bash script
+
+    ## Three statistics are calculated:
+    ## 1. Number of reads
+    ## 2. Promoter coverage
+    ## 3. Reads in peak ratio
+    
+    ## Count number of reads per barcode
+    # write a bash script for this: snATAC_readCounter.sh
+    #!/bin/bash
+    if [ "$#" -lt 1 ]
+    then
+        echo "error: no file name"
+        echo "usage: input the file name before '.bed.gz'"
+        exit 1
+    fi
+    
+    set -e
+    set -u
+    set -o pipefail
+    
+    gzcat $1.bed.gz | awk '{print $4}' | sort | uniq -c | awk '{print $2,$1}' | sort -k1,1 > $1.reads_per_cell.txt
+    
+    # run the script with parallel
+    find . -name "*.bed.gz" | sed 's/.bed.gz//' | parallel -j0 'snATAC_readCounter.sh {}'
+    
+    ## Promoter coverage
+    # using all protein coding promoters
+    # write a bash script for this: snATAC_promoter_cov.sh
+    #!/bin/bash
+    if [ "$#" -lt 2 ]
+    then
+        echo "error: no file name"
+        echo "usage: snATAC_promoter_cov.sh [file name of .bed.gz] [bed file of promoter]"
+        exit 1
+    fi
+    
+    set -e
+    set -u
+    set -o pipefail
+    
+    intersectBed -wa -wb -a $1.bed.gz -b $2 \
+        | awk '{print $4,$8}' \
+        | sort \
+        | uniq \
+        | awk '{print $1}' \
+        | uniq -c \
+        | awk '{print $2,$1}' \
+        | sort -k1,1 > $1.promoter_cov.txt
+    
+    # run the script with parallel
+    find . -name "*.bed.gz" | sed 's/.bed.gz//' | parallel -j0 'snATAC_promoter_cov.sh {} mm10_protein_coding_genes_3kbTSS.bed'
+    
+    ## Reads in peak ratio
+    # write a bash script for this: snATAC_reads_in_peak.sh
+    #!/bin/bash
+    set -e
+    set -u
+    set -o pipefail
+    
+    intersectBed -a $1.bed.gz -b $1\_macs2_peaks.narrowPeak -u \
+        | awk '{print $4}' \
+        | sort \
+        | uniq -c \
+        | awk '{print $2,$1}' \
+        | sort -k1,1 > $1.reads_in_peak.txt
+    
+    # Run the script with parallel
+    parallel -j0 snATAC_reads_in_peak.sh {} ::: Mammary_v1+2_fetal_rep1 Mammary_v1+2_fetal_rep2 Mammary_v1+2_adult_rep1 Mammary_v1+2_adult_rep2
+
+## Generate binary matrix
+
+Run in bash script
+
+    #!/bin/bash
+    set -e
+    set -u
+    set -o pipefail
+    
+    cd ./binary_matrix/
+    for FILES in fMaSC_v1+2_rep1 fMaSC_v1+2_rep2 Adult_v1+2_rep1 Adult_v1+2_rep2
+    do
+        snATAC bmat -i $FILES.bed.gz -x $FILES.xgi -y Mammary_v1+2_fetal+adult_distal.ygi -o >(gzip > $FILES.distal.mat.gz)
+        snATAC bmat -i $FILES.bed.gz -x $FILES.xgi -y Mammary_v1+2_fetal+adult_promoter.ygi -o >(gzip > $FILES.promoter.mat.gz)
+        echo $FILES" snATAC bmat done =========="
+    done
+    
+    # combine all cells together separated by distal and promoter
+    # bmat cell order is: 1-882 fMaSC1, 883-2577 fMaSC2, 2578-5042 adult1, 5043-7846 adult2
+    gzcat fMaSC_v1+2_rep1.distal.mat.gz fMaSC_v1+2_rep2.distal.mat.gz Adult_v1+2_rep1.distal.mat.gz Adult_v1+2_rep2.distal.mat.gz | gzip > fMaSC+adult_v1+2_rep1+2.distal.mat.gz
+    gzcat fMaSC_v1+2_rep1.promoter.mat.gz fMaSC_v1+2_rep2.promoter.mat.gz Adult_v1+2_rep1.promoter.mat.gz Adult_v1+2_rep2.promoter.mat.gz | gzip > fMaSC+adult_v1+2_rep1+2.promoter.mat.gz
+
+## Feature (regions) selection
+
+### Generate peak summit file
+
+Run in bash
+    script
+
+    cat Mammary_v1+2_fetal_rep1_macs2_summits.bed Mammary_v1+2_fetal_rep2_macs2_summits.bed Mammary_v1+2_adult_rep1_macs2_summits.bed Mammary_v1+2_adult_rep2_macs2_summits.bed | sort -k1,1 -k2,2n > sorted.bed
+    mergeBed -i sorted.bed > Mammary_fetal+adult_merged_macs2_summits.bed
+
+### Read files:
+
 ``` r
 library(GenomicRanges)
 library(IRanges)
@@ -14,10 +184,6 @@ library(irlba)
 library(Rtsne)
 library(scales)
 ```
-
-## Feature (regions) selection
-
-### Read files:
 
 ``` r
 peaks.df <- read.table("Mammary_fetal+adult_merged_macs2_summits.bed") # these are regions called by macs2 from aggregate snATAC-seq
