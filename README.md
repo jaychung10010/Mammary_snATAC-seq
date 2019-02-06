@@ -27,7 +27,6 @@ Run in bash script
     
     # Low quality base trimming
     #!/bin/bash
-    cd /Users/wahllab/Desktop/JayC/2018-08-03_snATAC_mammary/fastq/Second_seq_0831/combined_fastq/
     names=($(cat sample_name.txt))
     for FILES in "${names[@]}"
     do 
@@ -37,13 +36,11 @@ Run in bash script
     
     # Bowtie2 mapping of reads
     #!/bin/bash
-    cd /Users/wahllab/Desktop/JayC/2018-08-03_snATAC_mammary/fastq/Second_seq_0831/combined_fastq/
-    mkdir ./bam
     names=($(cat sample_name.txt))
     
     for FILES in "${names[@]}"
     do 
-        bowtie2 -p 16 -t -X 2000 --no-mixed --no-discordant -x /Users/wahllab/Desktop/JayC/Programs/Index/Bowtie2Index/mm10/genome -1 ./$FILES.R1.repl1.trim.fastq.gz -2 ./$FILES.R2.repl1.trim.fastq.gz -S ./bam/$FILES.sam
+        bowtie2 -p 16 -t -X 2000 --no-mixed --no-discordant -x /Bowtie2Index/mm10/genome -1 ./$FILES.R1.repl1.trim.fastq.gz -2 ./$FILES.R2.repl1.trim.fastq.gz -S ./$FILES.sam
         echo "=========="$FILES" bowtie2 done=========="
     done
     
@@ -54,16 +51,14 @@ Run in bash script
     
     # Pre-processing
     #!/bin/bash
-    cd ./bam/
     for FILES in Mammary_v1+2_fetal_rep1 Mammary_v1+2_fetal_rep2 Mammary_v1+2_adult_rep1 Mammary_v1+2_adult_rep2
     do
         snATAC pre -t 16 -m 30 -f 2000 -e 75 -i $FILES.demultiplexed.nsrt.bam -o $FILES.bed.gz 2> $FILES.snATAC.pre.log
         echo "=========="$FILES" snATAC pre done=========="
     done
     
-    # Call peaks
+    # Call peaks with aggregate profile
     #!/bin/bash
-    cd ./macs2/
     for FILES in Mammary_v1+2_fetal_rep1 Mammary_v1+2_fetal_rep2 Mammary_v1+2_adult_rep1 Mammary_v1+2_adult_rep2
     do
         macs2 callpeak -t $FILES.bed.gz -f BED -g mm --nolambda --nomodel --shift -100 --extsize 200 --keep-dup all -n ./$FILES\_macs2 --bdg --SPMR -q 5e-2
@@ -74,7 +69,7 @@ Run in bash script
 
 Run in bash script
 
-    ## Three statistics are calculated:
+    ## Three QC statistics are calculated per cell:
     ## 1. Number of reads
     ## 2. Promoter coverage
     ## 3. Reads in peak ratio
@@ -142,31 +137,9 @@ Run in bash script
     # Run the script with parallel
     parallel -j0 snATAC_reads_in_peak.sh {} ::: Mammary_v1+2_fetal_rep1 Mammary_v1+2_fetal_rep2 Mammary_v1+2_adult_rep1 Mammary_v1+2_adult_rep2
 
-## Generate binary matrix
-
-Run in bash script
-
-    #!/bin/bash
-    set -e
-    set -u
-    set -o pipefail
-    
-    cd ./binary_matrix/
-    for FILES in fMaSC_v1+2_rep1 fMaSC_v1+2_rep2 Adult_v1+2_rep1 Adult_v1+2_rep2
-    do
-        snATAC bmat -i $FILES.bed.gz -x $FILES.xgi -y Mammary_v1+2_fetal+adult_distal.ygi -o >(gzip > $FILES.distal.mat.gz)
-        snATAC bmat -i $FILES.bed.gz -x $FILES.xgi -y Mammary_v1+2_fetal+adult_promoter.ygi -o >(gzip > $FILES.promoter.mat.gz)
-        echo $FILES" snATAC bmat done =========="
-    done
-    
-    # combine all cells together separated by distal and promoter
-    # bmat cell order is: 1-882 fMaSC1, 883-2577 fMaSC2, 2578-5042 adult1, 5043-7846 adult2
-    gzcat fMaSC_v1+2_rep1.distal.mat.gz fMaSC_v1+2_rep2.distal.mat.gz Adult_v1+2_rep1.distal.mat.gz Adult_v1+2_rep2.distal.mat.gz | gzip > fMaSC+adult_v1+2_rep1+2.distal.mat.gz
-    gzcat fMaSC_v1+2_rep1.promoter.mat.gz fMaSC_v1+2_rep2.promoter.mat.gz Adult_v1+2_rep1.promoter.mat.gz Adult_v1+2_rep2.promoter.mat.gz | gzip > fMaSC+adult_v1+2_rep1+2.promoter.mat.gz
-
 ## Feature (regions) selection
 
-### Generate peak summit file
+### Generate peak summit file (from macs2 call peaks from aggregate snATAC profile)
 
 Run in bash
     script
@@ -186,7 +159,7 @@ library(scales)
 ```
 
 ``` r
-peaks.df <- read.table("Mammary_fetal+adult_merged_macs2_summits.bed") # these are regions called by macs2 from aggregate snATAC-seq
+peaks.df <- read.table("Mammary_fetal+adult_merged_macs2_summits.bed")
 nrow(peaks.df)
 ```
 
@@ -262,10 +235,40 @@ write.table(peaks.p.ex.df, "Mammary_v1+2_fetal+adult_promoter.ygi",
             row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
 ```
 
+### Generate binary matrix
+
+Run in bash script
+
+    #!/bin/bash
+    set -e
+    set -u
+    set -o pipefail
+    
+    for FILES in fMaSC_v1+2_rep1 fMaSC_v1+2_rep2 Adult_v1+2_rep1 Adult_v1+2_rep2
+    do
+        snATAC bmat -i $FILES.bed.gz -x $FILES.xgi -y Mammary_v1+2_fetal+adult_distal.ygi -o >(gzip > $FILES.distal.mat.gz)
+        snATAC bmat -i $FILES.bed.gz -x $FILES.xgi -y Mammary_v1+2_fetal+adult_promoter.ygi -o >(gzip > $FILES.promoter.mat.gz)
+        echo $FILES" snATAC bmat done =========="
+    done
+    
+    # Combine all cells into one file
+    # Binary matrix cell order is: 1-882 fMaSC1, 883-2577 fMaSC2, 2578-5042 adult1, 5043-7846 adult2
+    gzcat fMaSC_v1+2_rep1.distal.mat.gz fMaSC_v1+2_rep2.distal.mat.gz Adult_v1+2_rep1.distal.mat.gz Adult_v1+2_rep2.distal.mat.gz | gzip > fMaSC+adult_v1+2_rep1+2.distal.mat.gz
+    gzcat fMaSC_v1+2_rep1.promoter.mat.gz fMaSC_v1+2_rep2.promoter.mat.gz Adult_v1+2_rep1.promoter.mat.gz Adult_v1+2_rep2.promoter.mat.gz | gzip > fMaSC+adult_v1+2_rep1+2.promoter.mat.gz
+
+### Binary matrix file compression
+
+Convert into R sparse matrix and save as R binary file (to save
+    space)
+
+    all_distal_bmat <- read.table("fMaSC+adult_v1+2_rep1+2.distal.mat.gz") # this will take a while
+    all_distal_bmat_sm <- as(as.matrix(all_distal_bmat), "sparseMatrix")
+    save(all_distal_bmat_sm, file = "./fMaSC+adult_v1+2_rep1+2.distal.sparse_mat.RData")
+
 ## Data transformation and dimension reduction
 
 ``` r
-load("./fMaSC+adult_v1+2_rep1+2.distal.sparse_mat.RData") # load sparse binary matrix from upstream processing
+load("./fMaSC+adult_v1+2_rep1+2.distal.sparse_mat.RData") # load sparse binary matrix
 dim(all_distal_bmat_sm)
 ```
 
@@ -304,7 +307,7 @@ dim(bmat_svd_vd)
 
 ### t-SNE of distal regions
 
-Tune t-SNE by selecting lowest KL divergence
+Tune t-SNE by selecting lowest KL divergence In R:
 
     tsne_svd <- vector("list", 9)
     KL <- numeric()
@@ -325,12 +328,16 @@ Tune t-SNE by selecting lowest KL divergence
 
 ``` r
 best_tsne <- read.csv("./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv", row.names = 1)
-col <- c(rep("darkgreen", 2577), rep("orange", 5269))
+col <- c(rep("darkgreen", 2577), rep("orange", 5269)) # Fetal in green, adult in orange
 plot(best_tsne, cex = 0.8, pch = 16, xlab = "t-SNE1", ylab = "t-SNE2", 
      main = "t-SNE of snATAC-seq (7846 cells)", col = alpha(col, 0.5))
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+``` r
+sessionInfo()
+```
 
     ## R version 3.5.2 (2018-12-20)
     ## Platform: x86_64-apple-darwin15.6.0 (64-bit)
