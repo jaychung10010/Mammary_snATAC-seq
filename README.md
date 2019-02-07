@@ -310,10 +310,12 @@ dim(bmat_svd_vd)
 Tune t-SNE by selecting lowest KL divergence:
 
 ``` r
+# Run 9 t-SNE iterations and plot
 tsne_svd <- vector("list", 9)
 KL <- numeric()
 par(mfrow=c(3,3))
 set.seed(524)
+col <- c(rep("red", 2577), rep("blue", 5269))
 for (i in 1:9){
   mat <- Rtsne(bmat_svd_vd, dims = 2, perplexity = 30, verbose = TRUE, 
                max_iter = 1000, check_duplicates = FALSE, is_distance = FALSE, 
@@ -328,9 +330,12 @@ best_tsne <- tsne_svd[[which.min(KL)]] # lowest KL
 write.csv(best_tsne, "./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv")
 ```
 
+You will see something like this: ![Alt
+text](/Volumes/Jay_SSD/Wahl_lab/Bioinformatics/2018-08-03_snATAC_mammary/090418_second_run_combined/Git/snATAC/README_files/figure-gfm/Bmat_tfidf_SVD_tSNE_v12_distal_tune_bottom10rm.png)
+
 ``` r
 best_tsne <- read.csv("./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv", row.names = 1)
-col <- c(rep("darkgreen", 2577), rep("orange", 5269)) # Fetal in green, adult in orange
+col <- c(rep("red", 2577), rep("blue", 5269)) # Fetal in red, adult in blue
 plot(best_tsne, cex = 0.8, pch = 16, xlab = "t-SNE1", ylab = "t-SNE2", 
      main = "t-SNE of snATAC-seq (7846 cells)", col = alpha(col, 0.5))
 ```
