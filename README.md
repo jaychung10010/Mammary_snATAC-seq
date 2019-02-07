@@ -239,14 +239,8 @@ write.table(peaks.p.ex.df, "Mammary_v1+2_fetal+adult_promoter.ygi",
 
 ### Generate binary matrix
 
-Run in bash script
-
 ``` bash
 #!/bin/bash
-set -e
-set -u
-set -o pipefail
-
 for FILES in fMaSC_v1+2_rep1 fMaSC_v1+2_rep2 Adult_v1+2_rep1 Adult_v1+2_rep2
 do
     snATAC bmat -i $FILES.bed.gz -x $FILES.xgi -y Mammary_v1+2_fetal+adult_distal.ygi -o >(gzip > $FILES.distal.mat.gz)
