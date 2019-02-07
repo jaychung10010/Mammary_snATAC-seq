@@ -3,12 +3,15 @@ snATAC-seq of mouse mammary cells
 Jay Chung |
 Feb 2019
 
-Raw files can be downloaded here:
+###### This is the single-nucleus ATAC-seq workflow of [Wahl Lab @ the Salk Institute](https://wahl.salk.edu/)
+
+*Raw files can be downloaded here:*  
 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125523>
 
-Install the snATAC tool: <https://github.com/r3fang/snATAC>
+*Install the snATAC tool:*  
+<https://github.com/r3fang/snATAC>
 
-The full dataset can be visualized here:
+*The full dataset can be visualized here:*  
 <https://jc-bioinfo.shinyapps.io/TF_plots/>
 
 ## Sequence alignment and pre-processing
@@ -140,16 +143,106 @@ intersectBed -a $1.bed.gz -b $1\_macs2_peaks.narrowPeak -u \
 parallel -j0 snATAC_reads_in_peak.sh {} ::: Mammary_v1+2_fetal_rep1 Mammary_v1+2_fetal_rep2 Mammary_v1+2_adult_rep1 Mammary_v1+2_adult_rep2
 ```
 
-## Feature (regions) selection
+## Cell selection
 
-### Generate peak summit file (from macs2 call peaks from aggregate snATAC profile)
+#### Select cells that pass:
+
+#### 1\. reads per cell \>= 2000
+
+#### 2\. reads in peak ratio \>= 0.2
+
+``` r
+## write a function for QC
+# pro: promoter bed file
+# rnum: reads per cell file
+# pcov: promoter coverage file
+# rpeak: reads in peak file
+# sname: output name (will have .xgi)
+# nrcut: cutting threshold for reads number
+# prcut: cutting threshold for reads in peak ratio
+snATAC_QC <- function(pro, rnum, pcov, rpeak, sname, nrcut, prcut){
+  all_promoters <- read.table(pro)
+  read_num1 <- read.table(rnum)
+  p_cov1 <- read.table(pcov)
+  read_peak1 <- read.table(rpeak)
+  qc1 <- data.frame("barcode" = read_num1$V1, "num_of_reads" = read_num1$V2)
+  qc1$promoter_cov <- 0
+  qc1$read_in_peak <- 0
+  qc1$promoter_cov[match(p_cov1$V1, qc1$barcode)] <- p_cov1$V2/nrow(all_promoters)
+  qc1$read_in_peak[match(read_peak1$V1, qc1$barcode)] <- read_peak1$V2
+  qc1$ratio <- qc1$read_in_peak/qc1$num_of_reads
+  library(scales)
+  par(mfrow = c(2,2))
+  plot(qc1$num_of_reads, qc1$promoter_cov, main = paste(sname), pch = 16, col = alpha("black", 0.3))
+  plot(qc1$num_of_reads, qc1$read_in_peak, main = paste(sname), pch = 16, col = alpha("black", 0.3))
+  plot(qc1$promoter_cov, qc1$read_in_peak, main = paste(sname), pch = 16, col = alpha("black", 0.3))
+  dev.copy(pdf, paste0(sname,"_relations.pdf"))
+  dev.off()
+  par(mfrow = c(2,2))
+  plot(density(log10(qc1$num_of_reads)), xlab = "log10(num_of_reads)", main = paste(sname))
+  polygon(density(log10(qc1$num_of_reads)), col = alpha("black", 0.2))
+  abline(v = log10(nrcut), col = "red", lty = 5)
+  legend("top", paste0("cut=", nrcut), text.col = "red", bty = "n")
+  hist(qc1$ratio, breaks = 50, xlab = "reads_in_peak_ratio", main = paste(sname), col = alpha("black", 0.2))
+  abline(v = prcut, col = "red", lty = 5)
+  legend("top", paste0("cut=", prcut), text.col = "red", bty = "n")
+  dev.copy(pdf, paste0(sname,"_QC.pdf"))
+  dev.off()
+  idx <- which(qc1$num_of_reads >= nrcut & qc1$ratio >= prcut)
+  qc_sel <- qc1[idx,]
+  write.table(qc_sel[,1], file = paste0(sname, ".xgi"), quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  return(paste0("QC passed cell num: ", length(idx), 
+                " | Median reads per cell: ", round(median(qc_sel[,"num_of_reads"])), 
+                " | Median reads in peak ratio: ", round(median(qc_sel[,"ratio"]),2)))
+}
+
+## Fetal1
+snATAC_QC(pro = "mm10_protein_coding_genes_3kbTSS.bed", 
+          rnum = "Mammary_v1+2_fetal_rep1.reads_per_cell.txt", 
+          pcov = "Mammary_v1+2_fetal_rep1.promoter_cov.txt", 
+          rpeak = "Mammary_v1+2_fetal_rep1.reads_in_peak.txt", 
+          sname = "fMaSC_v1+2_rep1", 
+          nrcut = 2000, prcut = 0.2)
+# QC passed cell num: 882 | Median reads per cell: 5536 | Median reads in peak ratio: 0.69
+
+## Fetal2
+snATAC_QC(pro = "mm10_protein_coding_genes_3kbTSS.bed", 
+          rnum = "Mammary_v1+2_fetal_rep2.reads_per_cell.txt", 
+          pcov = "Mammary_v1+2_fetal_rep2.promoter_cov.txt", 
+          rpeak = "Mammary_v1+2_fetal_rep2.reads_in_peak.txt", 
+          sname = "fMaSC_v1+2_rep2", 
+          nrcut = 2000, prcut = 0.2)
+# QC passed cell num: 1695 | Median reads per cell: 7488 | Median reads in peak ratio: 0.69
+
+## Adult1
+snATAC_QC(pro = "mm10_protein_coding_genes_3kbTSS.bed", 
+          rnum = "Mammary_v1+2_adult_rep1.reads_per_cell.txt", 
+          pcov = "Mammary_v1+2_adult_rep1.promoter_cov.txt", 
+          rpeak = "Mammary_v1+2_adult_rep1.reads_in_peak.txt", 
+          sname = "Adult_v1+2_rep1", 
+          nrcut = 2000, prcut = 0.2)
+# QC passed cell num: 2465 | Median reads per cell: 4420 | Median reads in peak ratio: 0.74
+
+## Adult2
+snATAC_QC(pro = "mm10_protein_coding_genes_3kbTSS.bed", 
+          rnum = "Mammary_v1+2_adult_rep2.reads_per_cell.txt", 
+          pcov = "Mammary_v1+2_adult_rep2.promoter_cov.txt", 
+          rpeak = "Mammary_v1+2_adult_rep2.reads_in_peak.txt", 
+          sname = "Adult_v1+2_rep2", 
+          nrcut = 2000, prcut = 0.2)
+# QC passed cell num: 2804 | Median reads per cell: 5458 | Median reads in peak ratio: 0.71
+```
+
+## Feature selection
+
+#### Generate peak summit file (from macs2 call peaks from aggregate snATAC profile)
 
 ``` bash
 cat Mammary_v1+2_fetal_rep1_macs2_summits.bed Mammary_v1+2_fetal_rep2_macs2_summits.bed Mammary_v1+2_adult_rep1_macs2_summits.bed Mammary_v1+2_adult_rep2_macs2_summits.bed | sort -k1,1 -k2,2n > sorted.bed
 mergeBed -i sorted.bed > Mammary_fetal+adult_merged_macs2_summits.bed
 ```
 
-### Read files:
+#### Read files:
 
 ``` r
 library(GenomicRanges)
@@ -179,7 +272,7 @@ head(peaks.df)
     ## 5 chr1 3212897 3212898
     ## 6 chr1 3212923 3212924
 
-### Resize regions to 1 kb:
+#### Resize regions to 1 kb:
 
 ``` r
 peaks.gr <- GRanges(seqnames = peaks.df[,1], 
@@ -197,7 +290,7 @@ nrow(peaks.rs.df)
 
     ## [1] 164657
 
-### Separate promoters from enhancers:
+#### Separate promoters from enhancers:
 
 ``` r
 proms.df <- read.table("mm10_protein_coding_genes_3kbTSS.bed")
@@ -237,7 +330,7 @@ write.table(peaks.p.ex.df, "Mammary_v1+2_fetal+adult_promoter.ygi",
             row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
 ```
 
-### Generate binary matrix
+#### Generate binary matrix
 
 ``` bash
 #!/bin/bash
@@ -254,7 +347,7 @@ gzcat fMaSC_v1+2_rep1.distal.mat.gz fMaSC_v1+2_rep2.distal.mat.gz Adult_v1+2_rep
 gzcat fMaSC_v1+2_rep1.promoter.mat.gz fMaSC_v1+2_rep2.promoter.mat.gz Adult_v1+2_rep1.promoter.mat.gz Adult_v1+2_rep2.promoter.mat.gz | gzip > fMaSC+adult_v1+2_rep1+2.promoter.mat.gz
 ```
 
-### Binary matrix file compression
+#### Binary matrix file compression
 
 Convert into R sparse matrix and save as R binary file (to save
 space)
@@ -274,7 +367,7 @@ dim(all_distal_bmat_sm)
 
     ## [1]   7846 145453
 
-### Remove bottom 10% usage regions
+#### Remove bottom 10% usage regions
 
 ``` r
 dcount <- as.vector(Matrix::colSums(all_distal_bmat_sm))
@@ -283,7 +376,7 @@ all_distal_bmat_sm <- all_distal_bmat_sm[,didx_keep]
 all_distal_bmat_sm_t <- t(all_distal_bmat_sm) # transpose to row:regions, column:cells
 ```
 
-### LSI of distal regions
+#### Latent semantic indexing (LSI) of distal regions
 
 ``` r
 nfreqs <- t(t(all_distal_bmat_sm_t) / Matrix::colSums(all_distal_bmat_sm_t))
@@ -293,6 +386,8 @@ dim(tf_idf_counts_distal)
 ```
 
     ## [1] 130899   7846
+
+#### Dimension reduction with SVD
 
 ``` r
 set.seed(524)
@@ -305,7 +400,7 @@ dim(bmat_svd_vd)
 
     ## [1] 7846   50
 
-### t-SNE of distal regions
+#### t-SNE of distal regions
 
 Tune t-SNE by selecting lowest KL divergence:
 
@@ -340,7 +435,7 @@ plot(best_tsne, cex = 0.8, pch = 16, xlab = "t-SNE1", ylab = "t-SNE2",
      main = "t-SNE of snATAC-seq (7846 cells)", col = alpha(col, 0.5))
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
 
 ``` r
 sessionInfo()
@@ -369,9 +464,8 @@ sessionInfo()
     ## loaded via a namespace (and not attached):
     ##  [1] Rcpp_1.0.0             knitr_1.20             XVector_0.20.0        
     ##  [4] magrittr_1.5           zlibbioc_1.26.0        munsell_0.5.0         
-    ##  [7] colorspace_1.3-2       lattice_0.20-38        highr_0.7             
-    ## [10] stringr_1.3.1          tools_3.5.2            grid_3.5.2            
-    ## [13] htmltools_0.3.6        yaml_2.2.0             digest_0.6.18         
-    ## [16] GenomeInfoDbData_1.1.0 bitops_1.0-6           RCurl_1.95-4.11       
-    ## [19] evaluate_0.12          rmarkdown_1.11         stringi_1.2.4         
-    ## [22] compiler_3.5.2
+    ##  [7] colorspace_1.3-2       lattice_0.20-38        stringr_1.3.1         
+    ## [10] tools_3.5.2            grid_3.5.2             htmltools_0.3.6       
+    ## [13] yaml_2.2.0             digest_0.6.18          GenomeInfoDbData_1.1.0
+    ## [16] bitops_1.0-6           RCurl_1.95-4.11        evaluate_0.12         
+    ## [19] rmarkdown_1.11         stringi_1.2.4          compiler_3.5.2
