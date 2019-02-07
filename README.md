@@ -330,8 +330,8 @@ best_tsne <- tsne_svd[[which.min(KL)]] # lowest KL
 write.csv(best_tsne, "./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv")
 ```
 
-You will see something like this: 
-![](README_files/figure-gfm/Bmat_tfidf_SVD_tSNE_v12_distal_tune_bottom10rm.png)<!-- -->
+You will see something like this:
+<img src="/Volumes/Jay_SSD/Wahl_lab/Bioinformatics/2018-08-03_snATAC_mammary/090418_second_run_combined/Git/snATAC/README_files/figure-gfm/Bmat_tfidf_SVD_tSNE_v12_distal_tune_bottom10rm.png" title="A caption" alt="A caption" width="100%" />
 
 ``` r
 best_tsne <- read.csv("./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv", row.names = 1)
@@ -369,8 +369,9 @@ sessionInfo()
     ## loaded via a namespace (and not attached):
     ##  [1] Rcpp_1.0.0             knitr_1.20             XVector_0.20.0        
     ##  [4] magrittr_1.5           zlibbioc_1.26.0        munsell_0.5.0         
-    ##  [7] colorspace_1.3-2       lattice_0.20-38        stringr_1.3.1         
-    ## [10] tools_3.5.2            grid_3.5.2             htmltools_0.3.6       
-    ## [13] yaml_2.2.0             digest_0.6.18          GenomeInfoDbData_1.1.0
-    ## [16] bitops_1.0-6           RCurl_1.95-4.11        evaluate_0.12         
-    ## [19] rmarkdown_1.11         stringi_1.2.4          compiler_3.5.2
+    ##  [7] colorspace_1.3-2       lattice_0.20-38        highr_0.7             
+    ## [10] stringr_1.3.1          tools_3.5.2            grid_3.5.2            
+    ## [13] htmltools_0.3.6        yaml_2.2.0             digest_0.6.18         
+    ## [16] GenomeInfoDbData_1.1.0 bitops_1.0-6           RCurl_1.95-4.11       
+    ## [19] evaluate_0.12          rmarkdown_1.11         stringi_1.2.4         
+    ## [22] compiler_3.5.2
