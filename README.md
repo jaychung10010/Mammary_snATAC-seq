@@ -8,6 +8,9 @@ Raw files can be downloaded here:
 
 Install the snATAC tool: <https://github.com/r3fang/snATAC>
 
+The full dataset can be visualized here:
+<https://jc-bioinfo.shinyapps.io/TF_plots/>
+
 ## Sequence alignment and pre-processing
 
 ``` bash
