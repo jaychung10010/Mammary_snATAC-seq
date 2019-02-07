@@ -330,8 +330,8 @@ best_tsne <- tsne_svd[[which.min(KL)]] # lowest KL
 write.csv(best_tsne, "./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv")
 ```
 
-You will see something like this: ![Alt
-text](/Volumes/Jay_SSD/Wahl_lab/Bioinformatics/2018-08-03_snATAC_mammary/090418_second_run_combined/Git/snATAC/README_files/figure-gfm/Bmat_tfidf_SVD_tSNE_v12_distal_tune_bottom10rm.png)
+You will see something like this: 
+![](README_files/figure-gfm/Bmat_tfidf_SVD_tSNE_v12_distal_tune_bottom10rm.png)<!-- -->
 
 ``` r
 best_tsne <- read.csv("./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv", row.names = 1)
