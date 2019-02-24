@@ -426,7 +426,7 @@ write.csv(best_tsne, "./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv")
 ```
 
 You will see something like this:
-![](README_files/figure-gfm/Bmat_tfidf_SVD_tSNE_v12_distal_tune_bottom10rm.png)<!-- -->
+![](/Volumes/Jay_SSD/Wahl_lab/Bioinformatics/2018-08-03_snATAC_mammary/090418_second_run_combined/Git/snATAC/README_files/figure-gfm/Bmat_tfidf_SVD_tSNE_v12_distal_tune_bottom10rm.png)
 
 ``` r
 best_tsne <- read.csv("./Bmat_tfidf_svd_tsne_best_v1+2_distal.csv", row.names = 1)
@@ -435,7 +435,7 @@ plot(best_tsne, cex = 0.8, pch = 16, xlab = "t-SNE1", ylab = "t-SNE2",
      main = "t-SNE of snATAC-seq (7846 cells)", col = alpha(col, 0.5))
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+![](/Volumes/Jay_SSD/Wahl_lab/Bioinformatics/2018-08-03_snATAC_mammary/090418_second_run_combined/Git/snATAC/README_files/figure-gfm/snATAC_tSNE.png)
 
 ``` r
 sessionInfo()
@@ -443,7 +443,7 @@ sessionInfo()
 
     ## R version 3.5.2 (2018-12-20)
     ## Platform: x86_64-apple-darwin15.6.0 (64-bit)
-    ## Running under: macOS Mojave 10.14
+    ## Running under: macOS Mojave 10.14.3
     ## 
     ## Matrix products: default
     ## BLAS: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRblas.0.dylib
