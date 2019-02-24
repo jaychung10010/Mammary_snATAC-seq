@@ -469,3 +469,7 @@ sessionInfo()
     ## [13] yaml_2.2.0             digest_0.6.18          GenomeInfoDbData_1.1.0
     ## [16] bitops_1.0-6           RCurl_1.95-4.11        evaluate_0.12         
     ## [19] rmarkdown_1.11         stringi_1.2.4          compiler_3.5.2
+
+## References
+
+[snATAC-seq pipeline](https://www.nature.com/articles/s41593-018-0079-3)
