@@ -12,7 +12,7 @@ Feb 2019
 <https://github.com/r3fang/snATAC>
 
 *The full dataset can be visualized here:*  
-<https://jc-bioinfo.shinyapps.io/TF_plots/>
+<https://wahl-lab-salk.shinyapps.io/Mammary_snATAC/>
 
 ## Sequence alignment and pre-processing
 
