@@ -5,6 +5,9 @@ Feb 2019
 
 ###### This is the single-nucleus ATAC-seq workflow of [Wahl Lab @ the Salk Institute](https://wahl.salk.edu/)
 
+*Check out our paper:*
+<https://www.cell.com/cell-reports/pdf/S2211-1247(19)31151-9.pdf>
+
 *Raw files can be downloaded here:*  
 <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125523>
 
